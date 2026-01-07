@@ -1,0 +1,172 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Products sourced and listed
+model Product {
+  id                String   @id @default(uuid())
+  title             String
+  description       String?
+  sourceUrl         String?
+  shopifyProductId  String?  @unique
+  status            String   @default("draft") // draft, pending_approval, listed, delisted
+  category          String?
+  tags              String[]
+  
+  // Pricing
+  costPrice         Decimal  @db.Decimal(10, 2)
+  salePrice         Decimal  @db.Decimal(10, 2)
+  margin            Decimal  @db.Decimal(5, 2)
+  
+  // Supplier info
+  supplierId        String?
+  supplier          Supplier? @relation(fields: [supplierId], references: [id])
+  
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  orders            OrderItem[]
+  approvals         HumanCheckpoint[]
+}
+
+// Suppliers from CJ Dropshipping, AliExpress, etc.
+model Supplier {
+  id                String   @id @default(uuid())
+  name              String
+  platform          String   // cj_dropshipping, aliexpress, etc.
+  supplierId        String   // External supplier ID
+  url               String?
+  
+  // Ratings
+  rating            Decimal? @db.Decimal(3, 2)
+  reliability       String?  // high, medium, low
+  
+  // Performance metrics
+  avgLeadTime       Int?     // days
+  minOrderQty       Int?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  products          Product[]
+  
+  @@unique([platform, supplierId])
+}
+
+// Customer orders from Shopify
+model Order {
+  id                String   @id @default(uuid())
+  shopifyOrderId    String   @unique
+  orderNumber       String
+  
+  // Customer
+  customerEmail     String
+  customerName      String?
+  
+  // Financials
+  totalPrice        Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  
+  // Status
+  status            String   @default("pending") // pending, approved, processing, shipped, delivered, refunded, cancelled
+  paymentStatus     String   @default("pending") // pending, paid, refunded
+  fulfillmentStatus String   @default("unfulfilled") // unfulfilled, partial, fulfilled
+  
+  // Risk assessment
+  riskLevel         String?  // low, medium, high
+  fraudCheckResult  String?  // pass, review, fail
+  
+  // Shipping
+  shippingAddress   Json?
+  trackingNumber    String?
+  carrier           String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  
+  items             OrderItem[]
+  approvals         HumanCheckpoint[]
+}
+
+// Line items for orders
+model OrderItem {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id])
+  
+  quantity          Int
+  price             Decimal  @db.Decimal(10, 2)
+  
+  createdAt         DateTime @default(now())
+}
+
+// Human approval checkpoints
+model HumanCheckpoint {
+  id                String   @id @default(uuid())
+  type              String   // sourcing, high_risk_listing, large_order, refund
+  status            String   @default("pending") // pending, approved, rejected, expired
+  
+  // Related entities
+  productId         String?
+  product           Product? @relation(fields: [productId], references: [id])
+  orderId           String?
+  order             Order?   @relation(fields: [orderId], references: [id])
+  
+  // Checkpoint data
+  reason            String   // Why this needs human review
+  context           Json?    // Additional context for decision
+  
+  // Agent that created this
+  agentName         String
+  
+  // Review details
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  
+  // Expiry
+  expiresAt         DateTime
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+}
+
+// Agent task tracking
+model AgentTask {
+  id                String   @id @default(uuid())
+  agentName         String   // orchestrator, sourcing, listing, pricing, etc.
+  taskType          String   // research, source, list, price, fulfill, support
+  status            String   @default("pending") // pending, in_progress, completed, failed
+  
+  // Task data
+  input             Json?
+  output            Json?
+  errorMessage      String?
+  
+  // Timing
+  createdAt         DateTime @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  
+  @@index([agentName, status])
+  @@index([taskType, status])
+}

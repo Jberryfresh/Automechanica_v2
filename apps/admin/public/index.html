@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin UI - Orchestrator</title>
+    <style>body{font-family:Arial,Helvetica,sans-serif;padding:20px}label{display:block;margin-top:10px}</style>
+  </head>
+  <body>
+    <h1>Admin UI (Phase‑1)</h1>
+    <form id="cmd">
+      <label>Action <input name="action" value="sourcing.request" /></label>
+      <label>Routing Key <input name="routingKey" value="sourcing.request" /></label>
+      <label>Payload (JSON)<br/><textarea name="payload" rows="6" cols="80">{"product":{"title":"Test Product"}}</textarea></label>
+      <button type="submit">Send Command</button>
+    </form>
+    <pre id="out"></pre>
+
+    <script>
+      const out = document.getElementById('out');
+      document.getElementById('cmd').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const action = f.action.value;
+        const routingKey = f.routingKey.value;
+        let payload;
+        try { payload = JSON.parse(f.payload.value); } catch(err){ out.textContent = 'Invalid JSON in payload'; return; }
+        const res = await fetch('/api/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action, routingKey, payload }) });
+        const j = await res.json();
+        out.textContent = JSON.stringify(j, null, 2);
+      });
+    </script>
+  </body>
+</html>
