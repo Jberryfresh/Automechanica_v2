@@ -1,10 +1,9 @@
 {
-"name": "automechanica-v2",
-     "private": true,
-     "workspaces": [
-       "apps/*",
-       "libs/*"
-     ],
+  "name": "automechanica-v2",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "dependencies": {
     "@prisma/client": "^7.2.0"
   },
